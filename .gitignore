@@ -1,3 +1,5 @@
 .venv/
+__pycache__/
 config.py
-token.txt
+last_activity_id.txt
+last_morning_date.txt
