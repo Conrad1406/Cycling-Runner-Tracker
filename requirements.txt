@@ -1,0 +1,5 @@
+pyTelegramBotAPI
+google-genai
+pydantic
+requests
+garmin-connect-personal-api-python
