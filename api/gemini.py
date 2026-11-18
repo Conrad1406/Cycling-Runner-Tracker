@@ -50,7 +50,7 @@ class MorningPlan(BaseModel):
 
 def generate_morning_plan(strava_data, garmin_data=None) -> MorningPlan | None:
     prompt = f"""
-    Du bist ein hochspezialisierter Radsport-Coach für einen Fahrer des RSV Wattenscheid.
+    Du bist ein hochspezialisierter Radsport-Coach.
 
     Deine Aufgabe:
     1. Analysiere die gestrige Strava-Aktivität und die heutigen Garmin-Morgenwerte.
@@ -92,7 +92,7 @@ def generate_morning_plan(strava_data, garmin_data=None) -> MorningPlan | None:
         except Exception as e:
             print(f"Gemini-Fehler ({model_name}, Versuch {attempt}): {e}")
             time.sleep(3)
-            continue
+            return None
 
     print(
         "KRITISCHER GEMINI-FEHLER: Morgenplan konnte nicht erstellt werden."
@@ -129,9 +129,9 @@ def generate_activity_feedback(strava_data, planned_workout=None):
     {strava_data}
 
     Erstelle deine Analyse strikt in folgenden Abschnitten (nutze ausschließlich <b>fett</b>, <i>kursiv</i> und normale Zeilenumbrüche \\n, KEINE <br>-Tags und kein Markdown *):
-    1. 📈 <b>Leistung & Soll/Ist-Abgleich:</b> Bewertung von Watt/Pacing, Herzfrequenzbereichen und ob das geplante Workout getroffen wurde.
-    2. ⚠️ <b>Belastungs-Check (Suffer/NP):</b> War die Einheit im Zielbereich oder wurde überpaced/getrödelt?
-    3. 🔋 <b>Sofort-Regeneration (Post-Workout):</b> Konkrete Empfehlung für Carbs, Proteine und Flüssigkeit direkt nach der Einheit.
+    1. <b>Leistung & Soll/Ist-Abgleich:</b> Bewertung von Watt/Pacing, Herzfrequenzbereichen und ob das geplante Workout getroffen wurde.
+    2. <b>Belastungs-Check (Suffer/NP):</b> War die Einheit im Zielbereich oder wurde überpaced/getrödelt?
+    3. <b>Sofort-Regeneration (Post-Workout):</b> Konkrete Empfehlung für Carbs, Proteine und Flüssigkeit direkt nach der Einheit.
     """
     return _query_gemini(prompt)
 
@@ -160,7 +160,7 @@ def _query_gemini(prompt: str) -> str:
         except Exception as e:
             print(f"Gemini-Fehler ({model_name}, Versuch {attempt}): {e}")
             time.sleep(3)
-            continue
+            return None
 
     print("KRITISCHER GEMINI-FEHLER: Alle Modell-Aufrufe schlugen fehl.")
     return "KI-Analyse nicht verfügbar. Bitte Gemini-API-Key und Auslastung prüfen."

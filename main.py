@@ -60,18 +60,18 @@ def get_formatted_garmin_text(garmin_data):
     hrv_status = garmin_data.get("hrv_status", "N/A")
 
     return (
-        f"📊 <b>DEIN GARMIN-BERICHT</b> ({datum_clean})\n"
+        f"<b>DEIN GARMIN-BERICHT</b> ({datum_clean})\n"
         f"================================\n\n"
-        f"🏃‍♂️ <b>Aktivität & Herzfrequenz:</b>\n"
+        f"<b>Aktivität & Herzfrequenz:</b>\n"
         f"  • Ruhepuls (RHR): {rhr} BPM\n\n"
-        f"🔋 <b>Energie & Belastung:</b>\n"
+        f"<b>Energie & Belastung:</b>\n"
         f"  • Body Battery: Max {bb_max}\n"
         f"  • Regeneration: +{bb_charged} geladen\n"
         f"  • Schritte: {steps}\n\n"
-        f"😴 <b>Schlaf-Analyse:</b>\n"
+        f"<b>Schlaf-Analyse:</b>\n"
         f"  • Gesamtschlaf: {total_sleep} Std.\n"
         f"  • Schlafwert: {sleep_score}\n\n"
-        f"📈 <b>Herzratenvariabilität (HFV):</b>\n"
+        f"<b>Herzratenvariabilität (HFV):</b>\n"
         f"  • Letzte Nacht: {hrv_last} ms\n"
         f"  • Status: {hrv_status}\n\n"
         f"================================\n\n"
@@ -97,10 +97,7 @@ def run_morning_report():
     )
 
     if not plan:
-        telegram_bot.send_message(
-            garmin_text + "⚠️ KI-Analyse aktuell nicht verfügbar."
-        )
-        return
+        return None
 
     sync_hinweis = ""
     if plan.create_workout and plan.intervals_workout_steps.strip():
@@ -111,13 +108,13 @@ def run_morning_report():
         )
         if erfolg:
             sync_hinweis = (
-                f"\n\n🚴‍♂️ <b>Zwift-Workout hochgeladen:</b> {plan.workout_name}\n"
+                f"\n\n<b>Zwift-Workout hochgeladen:</b> {plan.workout_name}\n"
                 f"<i>(In Zwift unter Workouts → Custom → Intervals.icu)</i>"
             )
 
     gesamte_nachricht = (
         garmin_text
-        + "🧠 <b>KI-COACH MORGEN-EMPFEHLUNG:</b>\n\n"
+        + "<b>KI-COACH MORGEN-EMPFEHLUNG:</b>\n\n"
         + plan.coach_message
         + sync_hinweis
     )
@@ -126,7 +123,7 @@ def run_morning_report():
 
 
 def run_evening_report():
-    print("🌙 Generiere Abendbericht...")
+    print("Generiere Abendbericht...")
     today_str = date.today().isoformat()
 
     garmin_data = fetch_garmin_data(today_str)
@@ -144,14 +141,14 @@ def run_evening_report():
     )
 
     gesamte_nachricht = (
-        garmin_text + "🌙 <b>KI-COACH ABEND-FAZIT:</b>\n\n" + ki_empfehlung
+        garmin_text + "<b>KI-COACH ABEND-FAZIT:</b>\n\n" + ki_empfehlung
     )
     telegram_bot.send_message(gesamte_nachricht)
     print("Abendbericht erfolgreich gesendet!")
 
 
 def run_activity_report():
-    print("🚴‍♂️ Prüfe auf neue Strava-Aktivität...")
+    print("Prüfe auf neue Strava-Aktivität...")
     strava_activities = get_latest_activities(1)
 
     if not strava_activities:
@@ -164,7 +161,7 @@ def run_activity_report():
     if os.path.exists(LAST_ACTIVITY_FILE):
         with open(LAST_ACTIVITY_FILE, "r", encoding="utf-8") as f:
             if f.read().strip() == activity_id:
-                print(f"⏭️ Aktivität {activity_id} wurde bereits analysiert.")
+                print(f"Aktivität {activity_id} wurde bereits analysiert.")
                 return
 
     clean_ride = _extract_strava_summary(latest_ride)
@@ -174,9 +171,9 @@ def run_activity_report():
     )
 
     gesamte_nachricht = (
-        f"🚴‍♂️ <b>NEUE STRAVA-EINHEIT ANALYSIERT</b>\n"
+        f"<b>NEUE STRAVA-EINHEIT ANALYSIERT</b>\n"
         f"================================\n\n"
-        f"📊 <b>ANALYSE & ZONEN-AUSWERTUNG:</b>\n\n" + ki_empfehlung
+        f"<b>ANALYSE & ZONEN-AUSWERTUNG:</b>\n\n" + ki_empfehlung
     )
     telegram_bot.send_message(gesamte_nachricht)
 
