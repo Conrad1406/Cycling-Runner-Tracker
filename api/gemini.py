@@ -3,17 +3,28 @@ import time
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
-from config import gemini_api_key
+import config
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
-GEMINI_API_KEY = gemini_api_key
+GEMINI_API_KEY = getattr(config, "gemini_api_key", None) or getattr(
+    config, "GEMINI_API_KEY", ""
+)
 
 MODELS_TO_TRY = [
+    "gemini-3.8-flash",
     "gemini-flash-latest",
     "gemini-3.8-flash",
     "gemini-flash-latest",
+    "gemini-3.8-flash",
 ]
+
+
+def _get_client() -> genai.Client:
+    return genai.Client(
+        api_key=GEMINI_API_KEY,
+        http_options={"api_version": "v1beta"},
+    )
 
 
 class MorningPlan(BaseModel):
@@ -21,7 +32,7 @@ class MorningPlan(BaseModel):
         description=(
             "Deine ausführliche Analyse und Trainingsempfehlung für Telegram. "
             "Nutze ausschließlich <b>fett</b>, <i>kursiv</i> und normale Zeilenumbrüche (\\n). "
-            "Verwende KEINE <br>-Tags und kein Markdown (** oder ###)."
+            "Verwende KEINE <br>-Tags, kein Markdown (** oder ###) und keine Emojis."
         )
     )
     create_workout: bool = Field(
@@ -50,12 +61,13 @@ class MorningPlan(BaseModel):
 
 def generate_morning_plan(strava_data, garmin_data=None) -> MorningPlan | None:
     prompt = f"""
-    Du bist ein hochspezialisierter Radsport-Coach.
+    Du bist ein hochspezialisierter Radsport-Coach für einen Fahrer des RSV Wattenscheid.
 
     Deine Aufgabe:
     1. Analysiere die gestrige Strava-Aktivität und die heutigen Garmin-Morgenwerte.
     2. Entscheide, ob heute ein Ruhetag (create_workout=False) oder ein strukturiertes Zwift-Workout (create_workout=True) sinnvoll ist.
     3. Wenn create_workout=True: Erstelle ein passendes Workout in exakter Intervals.icu-Syntax (nur % FTP und rpm verwenden, keine absoluten Wattwerte).
+    4. Verwende in deiner Antwort keine Emojis.
 
     GARMIN MORGENBERICHT (HEUTE):
     {garmin_data}
@@ -65,10 +77,10 @@ def generate_morning_plan(strava_data, garmin_data=None) -> MorningPlan | None:
     """
 
     if not GEMINI_API_KEY:
-        logging.error("Fehler: Kein API-Key vorhanden.")
+        logging.error("Fehler: Kein Gemini-API-Key in config.py vorhanden.")
         return None
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = _get_client()
 
     for attempt, model_name in enumerate(MODELS_TO_TRY, start=1):
         try:
@@ -91,8 +103,7 @@ def generate_morning_plan(strava_data, garmin_data=None) -> MorningPlan | None:
 
         except Exception as e:
             print(f"Gemini-Fehler ({model_name}, Versuch {attempt}): {e}")
-            time.sleep(3)
-            return None
+            time.sleep(5 * attempt)
 
     print(
         "KRITISCHER GEMINI-FEHLER: Morgenplan konnte nicht erstellt werden."
@@ -100,12 +111,12 @@ def generate_morning_plan(strava_data, garmin_data=None) -> MorningPlan | None:
     return None
 
 
-def generate_evening_feedback(strava_data, garmin_data=None):
+def generate_evening_feedback(strava_data, garmin_data=None) -> str:
     prompt = f"""
     Du bist ein hochspezialisierter Radsport-Coach für einen Fahrer des RSV Wattenscheid.
     
     Deine Aufgabe: Bewerte den heutigen Tagesverlauf (Aktivität, Schritte, Stress, Body Battery) und bereite den Athleten optimal auf die Nachtruhe vor.
-    Nutze ausschließlich <b>fett</b>, <i>kursiv</i> und normale Zeilenumbrüche (\\n). Verwende KEINE <br>-Tags und kein Markdown (*).
+    Nutze ausschließlich <b>fett</b>, <i>kursiv</i> und normale Zeilenumbrüche (\\n). Verwende KEINE <br>-Tags, kein Markdown (*) und keine Emojis.
 
     GARMIN TAGESDATEN:
     {garmin_data}
@@ -116,20 +127,20 @@ def generate_evening_feedback(strava_data, garmin_data=None):
     return _query_gemini(prompt)
 
 
-def generate_activity_feedback(strava_data, planned_workout=None):
+def generate_activity_feedback(strava_data, planned_workout=None) -> str:
     prompt = f"""
     Du bist ein hochspezialisierter Radsport-Coach für einen Fahrer des RSV Wattenscheid.
     
-    Deine Aufgabe: Analysiere eine soeben hochgeladene Radfahrt direkt nach dem Training.
+    Deine Aufgabe: Analysiere eine soeben hochgeladene Einheit direkt nach dem Training.
 
     GEPLANTES WORKOUT HEUTE (INTERVALS.ICU):
-    {planned_workout if planned_workout else "Freie Fahrt (kein Workout geplant)."}
+    {planned_workout if planned_workout else "Freie Einheit (kein Workout geplant)."}
 
     STRAVA AKTIVITÄTSDATEN:
     {strava_data}
 
-    Erstelle deine Analyse strikt in folgenden Abschnitten (nutze ausschließlich <b>fett</b>, <i>kursiv</i> und normale Zeilenumbrüche \\n, KEINE <br>-Tags und kein Markdown *):
-    1. <b>Leistung & Soll/Ist-Abgleich:</b> Bewertung von Watt/Pacing, Herzfrequenzbereichen und ob das geplante Workout getroffen wurde.
+    Erstelle deine Analyse strikt in folgenden Abschnitten (nutze ausschließlich <b>fett</b>, <i>kursiv</i> und normale Zeilenumbrüche \\n, KEINE <br>-Tags, kein Markdown * und keine Emojis):
+    1. <b>Leistung & Soll/Ist-Abgleich:</b> Bewertung von Watt/Pace/Pacing, Herzfrequenzbereichen und ob das geplante Workout getroffen wurde.
     2. <b>Belastungs-Check (Suffer/NP):</b> War die Einheit im Zielbereich oder wurde überpaced/getrödelt?
     3. <b>Sofort-Regeneration (Post-Workout):</b> Konkrete Empfehlung für Carbs, Proteine und Flüssigkeit direkt nach der Einheit.
     """
@@ -138,10 +149,10 @@ def generate_activity_feedback(strava_data, planned_workout=None):
 
 def _query_gemini(prompt: str) -> str:
     if not GEMINI_API_KEY:
-        logging.error("Fehler: Kein API-Key vorhanden.")
+        logging.error("Fehler: Kein Gemini-API-Key in config.py vorhanden.")
         return "KI-Analyse nicht verfügbar: Es ist kein Gemini-API-Key konfiguriert."
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = _get_client()
 
     for attempt, model_name in enumerate(MODELS_TO_TRY, start=1):
         try:
@@ -159,8 +170,7 @@ def _query_gemini(prompt: str) -> str:
 
         except Exception as e:
             print(f"Gemini-Fehler ({model_name}, Versuch {attempt}): {e}")
-            time.sleep(3)
-            return None
+            time.sleep(5 * attempt)
 
     print("KRITISCHER GEMINI-FEHLER: Alle Modell-Aufrufe schlugen fehl.")
     return "KI-Analyse nicht verfügbar. Bitte Gemini-API-Key und Auslastung prüfen."

@@ -97,7 +97,10 @@ def run_morning_report():
     )
 
     if not plan:
-        return None
+        telegram_bot.send_message(
+            garmin_text + "KI-Analyse aktuell nicht verfügbar."
+        )
+        return
 
     sync_hinweis = ""
     if plan.create_workout and plan.intervals_workout_steps.strip():
@@ -109,7 +112,7 @@ def run_morning_report():
         if erfolg:
             sync_hinweis = (
                 f"\n\n<b>Zwift-Workout hochgeladen:</b> {plan.workout_name}\n"
-                f"<i>(In Zwift unter Workouts → Custom → Intervals.icu)</i>"
+                f"<i>(In Zwift unter Workouts -> Custom -> Intervals.icu)</i>"
             )
 
     gesamte_nachricht = (
@@ -136,8 +139,11 @@ def run_evening_report():
         else {}
     )
 
-    ki_empfehlung = generate_evening_feedback(
-        strava_data=latest_ride, garmin_data=garmin_text
+    ki_empfehlung = (
+        generate_evening_feedback(
+            strava_data=latest_ride, garmin_data=garmin_text
+        )
+        or "KI-Analyse aktuell nicht verfügbar."
     )
 
     gesamte_nachricht = (
@@ -169,6 +175,10 @@ def run_activity_report():
     ki_empfehlung = generate_activity_feedback(
         strava_data=clean_ride, planned_workout=planned
     )
+
+    if not ki_empfehlung or "KI-Analyse nicht verfügbar" in ki_empfehlung:
+        print("KI-Analyse fehlgeschlagen – Aktivität wird beim nächsten Lauf erneut geprüft.")
+        return
 
     gesamte_nachricht = (
         f"<b>NEUE STRAVA-EINHEIT ANALYSIERT</b>\n"
